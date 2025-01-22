@@ -5,7 +5,7 @@ from zapv2 import ZAPv2
 class ZAPFuzzer():
     def __init__(self, zap_instance):
         self.zap = zap_instance
-        self.max_payloads = 10
+        self.max_payloads = 3 
         self.num_iterations = 0
 
     def reset(self):
@@ -62,11 +62,9 @@ class ZAPPayloadGenerator:
 def perform_sniper_attack():
     # connect to ZAP instance 
     localProxy = {"http": "http://127.0.0.1:8080", "https": "http://127.0.0.1:8080"}
-    api_key = 'blah'
+    apikey = ''
     zap = ZAPv2(proxies=localProxy, apikey=apikey)
-
     payload_generator = ZAPPayloadGenerator(zap)
-    target_url = "http://testphp.vulnweb.com/search.php?test=|query|"
     headers = {
         "Host": "testphp.vulnweb.com",
         "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
@@ -80,16 +78,29 @@ def perform_sniper_attack():
         "Upgrade-Insecure-Requests": "1",
         "Priority": "u=0, i",
     }
-    data = "searchFor=|test|&goButton=|go|"
     to_fuzz = ['query', 'test', 'go']
     for fuzz in to_fuzz:
+        target_url = "http://testphp.vulnweb.com/search.php?test=|query|"
+        data = "searchFor=|test|&goButton=|go|"
         fuzzed_payloads = payload_generator.generate_payloads(fuzz)
         for fuzzed_payload in fuzzed_payloads:
-            
-            print(f'Fuzzed payload: {fuzzed_payload}')
-
-    #response = requests.post(url, headers=headers, data=data, verify=False) 
-
+            if fuzz == 'query':
+                url = target_url.replace('|query|', fuzzed_payload)
+                post_data = data.replace('|test|', 'test')
+                post_data = post_data.replace('|go|', 'go')
+            elif fuzz == 'test':
+                url = target_url.replace('|query|', 'query')
+                post_data = data.replace('|test|', fuzzed_payload)
+                post_data = post_data.replace('|go|', 'go')
+            else:
+                url = target_url.replace('|query|', 'query')
+                post_data = data.replace('|test|', 'test')
+                post_data = post_data.replace('|go|', fuzzed_payload)
+            print(f'URL : {url}')
+            print(f'Headers : {headers}')
+            print(f'Data : {post_data}\n')
+            response = requests.post(url, headers=headers, data=post_data, verify=False, proxies=localProxy) 
+            print(response) 
 
 if __name__ == "__main__":
     perform_sniper_attack()
